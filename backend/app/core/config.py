@@ -18,10 +18,14 @@ class Settings(BaseSettings):
 
     @property
     def SQLALCHEMY_DATABASE_URI(self) -> str:
-        if self.DATABASE_URL.startswith("libsql://"):
-            # Convert to a format SQLAlchemy with sqlalchemy-libsql understands
-            return self.DATABASE_URL.replace("libsql://", "sqlite+libsql://")
-        return self.DATABASE_URL
+        url = self.DATABASE_URL
+        if url.startswith("libsql://") or url.startswith("https://"):
+            # If it's already https://, we just need the sqlite+libsql:// prefix
+            if url.startswith("https://"):
+                 return f"sqlite+libsql://{url}"
+            # Otherwise convert libsql:// to sqlite+libsql://
+            return url.replace("libsql://", "sqlite+libsql://")
+        return url
 
 
     # TELEGRAM
