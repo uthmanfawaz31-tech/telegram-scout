@@ -23,7 +23,7 @@ class CampaignBase(BaseModel):
     scheduled_at: datetime
 
 class CampaignCreate(CampaignBase):
-    pass
+    chat_ids: Optional[List[int]] = None
 
 class Campaign(CampaignBase):
     id: int

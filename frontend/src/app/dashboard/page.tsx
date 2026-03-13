@@ -26,6 +26,8 @@ export default function Dashboard() {
     const [activeTab, setActiveTab] = useState("Overview");
     const [user, setUser] = useState<{ id?: number; first_name?: string; username?: string } | null>(null);
     const [showModal, setShowModal] = useState(false);
+    const [isSidebarVisible, setIsSidebarVisible] = useState(true);
+    const [selectedGroupIds, setSelectedGroupIds] = useState<number[]>([]);
 
     useEffect(() => {
         const session = localStorage.getItem("tg_session");
@@ -48,12 +50,28 @@ export default function Dashboard() {
         <div className="min-h-screen flex bg-black/50 overflow-hidden">
             <Background />
 
+            {/* Sidebar Toggle Button (Mobile/Floating) */}
+            <button
+                onClick={() => setIsSidebarVisible(!isSidebarVisible)}
+                className="fixed bottom-6 right-6 z-50 p-4 bg-blue-600 rounded-full shadow-lg md:hidden"
+            >
+                <Layers className="w-6 h-6 text-white" />
+            </button>
+
             {/* Sidebar */}
-            <aside className="w-64 blue-glass border-r border-white/5 flex flex-col z-20">
+            <aside className={`${isSidebarVisible ? "w-64" : "w-0 overflow-hidden"} blue-glass border-r border-white/5 flex flex-col z-20 transition-all duration-300 relative`}>
                 <div className="p-6">
-                    <div className="flex items-center space-x-3 text-blue-500">
-                        <Send className="w-8 h-8" />
-                        <span className="font-bold text-xl text-white">TelePro</span>
+                    <div className="flex items-center justify-between text-blue-500">
+                        <div className="flex items-center space-x-3">
+                            <Send className="w-8 h-8" />
+                            <span className="font-bold text-xl text-white">TelePro</span>
+                        </div>
+                        <button
+                            onClick={() => setIsSidebarVisible(false)}
+                            className="text-slate-500 hover:text-white transition-colors hidden md:block"
+                        >
+                            <Plus className="w-5 h-5 rotate-45" />
+                        </button>
                     </div>
                 </div>
 
@@ -119,33 +137,64 @@ export default function Dashboard() {
             </aside>
 
             {/* Main Content */}
-            <main className="flex-1 overflow-y-auto p-8 z-10 text-white">
-                <header className="flex justify-between items-center mb-12">
+            <main className="flex-1 overflow-y-auto p-8 z-10 text-white relative">
+                {!isSidebarVisible && (
+                    <button
+                        onClick={() => setIsSidebarVisible(true)}
+                        className="absolute top-8 left-8 p-2 blue-glass rounded-lg hover:bg-white/5 transition-all z-30"
+                        title="Show Sidebar"
+                    >
+                        <Layers className="w-5 h-5 text-blue-400" />
+                    </button>
+                )}
+                <header className={`flex justify-between items-center mb-12 ${!isSidebarVisible ? 'pl-12' : ''}`}>
                     <div>
                         <h1 className="text-3xl font-bold">{activeTab}</h1>
                         <p className="text-slate-400">Welcome back, {user?.first_name || "Scout"}.</p>
                     </div>
-                    {activeTab === "Broadcasts" && (
-                        <button
-                            onClick={() => setShowModal(true)}
-                            className="btn-primary flex items-center space-x-2"
-                        >
-                            <Plus className="w-4 h-4" />
-                            <span>New Campaign</span>
-                        </button>
+                    {(activeTab === "Broadcasts" || activeTab === "Groups") && (
+                        <div className="flex space-x-4">
+                            {activeTab === "Groups" && selectedGroupIds.length > 0 && (
+                                <button
+                                    onClick={() => setShowModal(true)}
+                                    className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl transition-all shadow-lg active:scale-95 flex items-center space-x-2"
+                                >
+                                    <Send className="w-4 h-4" />
+                                    <span>Broadcast to {selectedGroupIds.length}</span>
+                                </button>
+                            )}
+                            <button
+                                onClick={() => setShowModal(true)}
+                                className="btn-primary flex items-center space-x-2"
+                            >
+                                <Plus className="w-4 h-4" />
+                                <span>New Campaign</span>
+                            </button>
+                        </div>
                     )}
                 </header>
 
                 <FadeIn key={activeTab}>
                     {activeTab === "Overview" && <OverviewView />}
-                    {activeTab === "Groups" && <GroupsView onRelogin={() => router.push("/")} />}
+                    {activeTab === "Groups" && (
+                        <GroupsView
+                            onRelogin={() => router.push("/")}
+                            selectedIds={selectedGroupIds}
+                            onSelectionChange={setSelectedGroupIds}
+                        />
+                    )}
                     {activeTab === "Broadcasts" && <BroadcastsView />}
                     {activeTab === "Scheduling" && <SchedulingView />}
                     {activeTab === "Analytics" && <AnalyticsView />}
                     {activeTab === "Settings" && <SettingsView />}
                 </FadeIn>
 
-                {showModal && <NewCampaignModal onClose={() => setShowModal(false)} />}
+                {showModal && (
+                    <NewCampaignModal
+                        onClose={() => setShowModal(false)}
+                        initialSelectedIds={selectedGroupIds}
+                    />
+                )}
             </main>
         </div>
     );
@@ -217,7 +266,7 @@ function OverviewView() {
     );
 }
 
-function GroupsView({ onRelogin }: { onRelogin: () => void }) {
+function GroupsView({ onRelogin, selectedIds, onSelectionChange }: { onRelogin: () => void; selectedIds: number[]; onSelectionChange: (ids: number[]) => void }) {
     const [groups, setGroups] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
@@ -242,6 +291,22 @@ function GroupsView({ onRelogin }: { onRelogin: () => void }) {
         };
         fetchGroups();
     }, []);
+
+    const toggleSelectAll = () => {
+        if (selectedIds.length === groups.length) {
+            onSelectionChange([]);
+        } else {
+            onSelectionChange(groups.map(g => g.id));
+        }
+    };
+
+    const toggleGroup = (id: number) => {
+        if (selectedIds.includes(id)) {
+            onSelectionChange(selectedIds.filter(i => i !== id));
+        } else {
+            onSelectionChange([...selectedIds, id]);
+        }
+    };
 
     if (loading) return <div className="text-center py-20 text-slate-400">Loading your Telegram groups...</div>;
 
@@ -271,45 +336,129 @@ function GroupsView({ onRelogin }: { onRelogin: () => void }) {
     );
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {groups.length === 0 ? (
-                <div className="col-span-full text-center py-20 text-slate-500">
-                    No groups found. Try joining some or check your account.
-                </div>
-            ) : (
-                groups.map((group) => (
-                    <div key={group.id} className="blue-glass p-6 rounded-2xl border border-white/5 hover:border-blue-500/30 transition-all">
-                        <div className="flex items-center space-x-4 mb-4">
-                            <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400 font-bold">
-                                {group.name.charAt(0)}
-                            </div>
-                            <div>
-                                <h4 className="font-semibold truncate w-40">{group.name}</h4>
-                                <p className="text-xs text-slate-500">{group.is_channel ? "Channel" : "Group"}</p>
-                            </div>
-                        </div>
-                        <div className="flex justify-between items-center pt-4 border-t border-white/5">
-                            <span className="text-[10px] text-slate-500 uppercase">ID: {group.id}</span>
-                            <button className="text-blue-400 text-xs font-semibold hover:underline">Select</button>
-                        </div>
+        <div className="space-y-6">
+            <div className="flex justify-between items-center bg-white/5 p-4 rounded-xl border border-white/5">
+                <span className="text-sm text-slate-400">{selectedIds.length} groups selected</span>
+                <button
+                    onClick={toggleSelectAll}
+                    className="text-sm text-blue-400 font-semibold hover:underline"
+                >
+                    {selectedIds.length === groups.length ? "Deselect All" : "Select All"}
+                </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {groups.length === 0 ? (
+                    <div className="col-span-full text-center py-20 text-slate-500">
+                        No groups found. Try joining some or check your account.
                     </div>
-                ))
-            )}
+                ) : (
+                    groups.map((group) => (
+                        <div
+                            key={group.id}
+                            onClick={() => toggleGroup(group.id)}
+                            className={`blue-glass p-6 rounded-2xl border transition-all cursor-pointer ${selectedIds.includes(group.id) ? "border-blue-500 bg-blue-500/5" : "border-white/5 hover:border-blue-500/30"
+                                }`}
+                        >
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center space-x-4">
+                                    <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400 font-bold">
+                                        {group.name.charAt(0)}
+                                    </div>
+                                    <div>
+                                        <h4 className="font-semibold truncate w-32">{group.name}</h4>
+                                        <p className="text-xs text-slate-500">{group.is_channel ? "Channel" : "Group"}</p>
+                                    </div>
+                                </div>
+                                <div className={`w-5 h-5 rounded border ${selectedIds.includes(group.id) ? "bg-blue-500 border-blue-500" : "border-white/20"
+                                    } flex items-center justify-center`}>
+                                    {selectedIds.includes(group.id) && <Plus className="w-3 h-3 text-white" />}
+                                </div>
+                            </div>
+                            <div className="flex justify-between items-center pt-4 border-t border-white/5">
+                                <span className="text-[10px] text-slate-500 uppercase">ID: {group.id}</span>
+                                <span className="text-blue-400 text-xs font-semibold">{selectedIds.includes(group.id) ? "Selected" : "Select"}</span>
+                            </div>
+                        </div>
+                    ))
+                )}
+            </div>
         </div>
     );
 }
 
 function SchedulingView() {
+    const [campaigns, setCampaigns] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    const fetchCampaigns = async () => {
+        try {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/campaigns`);
+            if (response.ok) {
+                const data = await response.json();
+                // Filter for pending campaigns
+                setCampaigns(data.filter((c: any) => c.status === "pending"));
+            }
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchCampaigns();
+    }, []);
+
+    const handleStop = async (id: number) => {
+        try {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/campaigns/${id}/stop`, {
+                method: "POST"
+            });
+            if (response.ok) {
+                fetchCampaigns();
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    if (loading) return <div className="text-center py-20 text-slate-400">Loading scheduled campaigns...</div>;
+
     return (
-        <div className="blue-glass p-12 rounded-2xl text-center">
-            <Calendar className="w-16 h-16 text-blue-500/50 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold mb-2">Message Scheduling</h3>
-            <p className="text-slate-400 mb-6 max-w-md mx-auto">
-                Plan your reach. Setup recurring broadcasts and time-sensitive updates for your audience.
-            </p>
-            <div className="inline-flex items-center px-4 py-2 rounded-lg bg-blue-500/10 text-blue-400 text-sm border border-blue-500/20">
-                Coming Soon - April 2026
-            </div>
+        <div className="space-y-6">
+            {campaigns.length === 0 ? (
+                <div className="blue-glass p-12 rounded-2xl text-center">
+                    <Calendar className="w-16 h-16 text-blue-500/50 mx-auto mb-4" />
+                    <h3 className="text-xl font-semibold mb-2">No Scheduled Campaigns</h3>
+                    <p className="text-slate-400 mb-6">Create a campaign and set a future date to see it here.</p>
+                </div>
+            ) : (
+                campaigns.map((camp) => (
+                    <div key={camp.id} className="blue-glass p-6 rounded-2xl border border-white/5 hover:border-white/10 transition-all">
+                        <div className="flex justify-between items-start mb-4">
+                            <div className="flex items-center space-x-4">
+                                <div className="p-3 bg-blue-500/10 text-blue-400 rounded-xl">
+                                    <Clock className="w-6 h-6" />
+                                </div>
+                                <div>
+                                    <h4 className="font-semibold text-lg">{camp.name}</h4>
+                                    <p className="text-sm text-slate-500">Scheduled for {new Date(camp.scheduled_at).toLocaleString()}</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => handleStop(camp.id)}
+                                className="text-red-400 text-xs font-bold hover:underline"
+                            >
+                                CANCEL
+                            </button>
+                        </div>
+                        <div className="p-4 bg-white/5 rounded-xl text-sm text-slate-300 line-clamp-2 italic">
+                            "{camp.message_text}"
+                        </div>
+                    </div>
+                ))
+            )}
         </div>
     );
 }
@@ -377,22 +526,36 @@ function BroadcastsView() {
     const [campaigns, setCampaigns] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const fetchCampaigns = async () => {
-            try {
-                const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/campaigns`);
-                if (response.ok) {
-                    const data = await response.json();
-                    setCampaigns(data);
-                }
-            } catch (err) {
-                console.error(err);
-            } finally {
-                setLoading(false);
+    const fetchCampaigns = async () => {
+        try {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/campaigns`);
+            if (response.ok) {
+                const data = await response.json();
+                setCampaigns(data);
             }
-        };
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
         fetchCampaigns();
     }, []);
+
+    const handleStop = async (id: number) => {
+        try {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/campaigns/${id}/stop`, {
+                method: "POST"
+            });
+            if (response.ok) {
+                fetchCampaigns();
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    };
 
     if (loading) return <div className="text-center py-20 text-slate-400">Loading campaigns...</div>;
 
@@ -408,25 +571,33 @@ function BroadcastsView() {
                 </div>
             ) : (
                 campaigns.map((camp) => (
-                    <div key={camp.id} className="blue-glass p-6 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div key={camp.id} className="blue-glass p-6 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 border border-white/5 hover:border-white/10 transition-all">
                         <div className="flex items-center space-x-4">
-                            <div className={`p-3 rounded-xl ${camp.status === "completed" ? "bg-emerald-500/10 text-emerald-400" : "bg-blue-500/10 text-blue-400"}`}>
+                            <div className={`p-3 rounded-xl ${camp.status === "completed" ? "bg-emerald-500/10 text-emerald-400" : camp.status === "cancelled" ? "bg-slate-500/10 text-slate-400" : "bg-blue-500/10 text-blue-400"}`}>
                                 <Send className="w-6 h-6" />
                             </div>
                             <div>
                                 <h4 className="font-semibold text-lg">{camp.name}</h4>
-                                <p className="text-sm text-slate-500">{camp.message_text.substring(0, 50)}...</p>
+                                <p className="text-sm text-slate-400 line-clamp-1 max-w-md">{camp.message_text}</p>
                             </div>
                         </div>
                         <div className="flex items-center space-x-6">
                             <div className="text-right">
                                 <p className="text-xs text-slate-500 uppercase">Status</p>
-                                <p className={`text-sm font-semibold capitalize ${camp.status === "completed" ? "text-emerald-400" : "text-blue-400"}`}>{camp.status}</p>
+                                <p className={`text-sm font-semibold capitalize ${camp.status === "completed" ? "text-emerald-400" : camp.status === "cancelled" ? "text-red-400" : "text-blue-400"}`}>{camp.status}</p>
                             </div>
-                            <div className="text-right">
+                            <div className="text-right hidden sm:block">
                                 <p className="text-xs text-slate-500 uppercase">Date</p>
                                 <p className="text-sm font-semibold">{new Date(camp.created_at).toLocaleDateString()}</p>
                             </div>
+                            {(camp.status === "running" || camp.status === "pending") && (
+                                <button
+                                    onClick={() => handleStop(camp.id)}
+                                    className="px-4 py-2 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg text-xs font-bold hover:bg-red-500/20 transition-all"
+                                >
+                                    STOP
+                                </button>
+                            )}
                         </div>
                     </div>
                 ))
@@ -454,9 +625,10 @@ function StatCard({ label, value, icon, trend }: { label: string; value: string;
     );
 }
 
-function NewCampaignModal({ onClose }: { onClose: () => void }) {
+function NewCampaignModal({ onClose, initialSelectedIds = [] }: { onClose: () => void; initialSelectedIds?: number[] }) {
     const [name, setName] = useState("");
     const [message, setMessage] = useState("");
+    const [scheduledAt, setScheduledAt] = useState(new Date().toISOString().slice(0, 16));
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
 
@@ -471,7 +643,8 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
                 body: JSON.stringify({
                     name,
                     message_text: message,
-                    scheduled_at: new Date().toISOString()
+                    scheduled_at: new Date(scheduledAt).toISOString(),
+                    chat_ids: initialSelectedIds.length > 0 ? initialSelectedIds : null
                 }),
             });
             if (!response.ok) throw new Error("Failed to create campaign");
@@ -523,7 +696,27 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
                             onChange={(e) => setMessage(e.target.value)}
                             required
                         />
+                        <p className="mt-2 text-[10px] text-slate-500">
+                            Tip: Use spintax like <code className="text-blue-400">{"{Hello|Hi|Greetings}"}</code> to vary your messages.
+                        </p>
                     </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-400 mb-2">Schedule Time</label>
+                        <input
+                            type="datetime-local"
+                            className="w-full bg-slate-900/50 border border-white/10 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none transition-all text-white"
+                            value={scheduledAt}
+                            onChange={(e) => setScheduledAt(e.target.value)}
+                            required
+                        />
+                    </div>
+                    {initialSelectedIds.length > 0 && (
+                        <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                            <p className="text-xs text-blue-400 font-medium">
+                                Broadcasting to {initialSelectedIds.length} selected groups.
+                            </p>
+                        </div>
+                    )}
                     <div className="flex space-x-4">
                         <button
                             type="button"

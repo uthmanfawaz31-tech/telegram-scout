@@ -2,6 +2,8 @@ from telethon import TelegramClient, events, functions, types
 from telethon.sessions import StringSession
 from app.core.config import settings
 import logging
+import re
+import random
 
 logger = logging.getLogger(__name__)
 
@@ -76,3 +78,14 @@ class TelegramService:
         except Exception as e:
             logger.error(f"Join error: {e}")
             return False
+
+    @staticmethod
+    def parse_spintax(text: str) -> str:
+        pattern = re.compile(r'\{([^{}]*)\}')
+        while True:
+            match = pattern.search(text)
+            if not match:
+                break
+            options = match.group(1).split('|')
+            text = text[:match.start()] + random.choice(options) + text[match.end():]
+        return text

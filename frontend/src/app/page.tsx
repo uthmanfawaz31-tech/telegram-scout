@@ -1,17 +1,26 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Background from "@/components/Background";
 import FadeIn from "@/components/FadeIn";
 import { MessageSquare, Shield, Zap, TrendingUp } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 export default function Home() {
+  const router = useRouter();
   const [phoneNumber, setPhoneNumber] = useState("");
   const [otp, setOtp] = useState("");
   const [step, setStep] = useState(1); // 1: Phone, 2: OTP
   const [phoneCodeHash, setPhoneCodeHash] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    const session = localStorage.getItem("tg_session");
+    if (session) {
+      router.push("/dashboard");
+    }
+  }, [router]);
 
   const handleSendCode = async (e: React.FormEvent) => {
     e.preventDefault();
