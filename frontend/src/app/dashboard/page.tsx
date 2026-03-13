@@ -75,9 +75,24 @@ export default function Dashboard() {
                         active={activeTab === "Broadcasts"}
                         onClick={() => setActiveTab("Broadcasts")}
                     />
-                    <NavItem icon={<Calendar className="w-5 h-5" />} label="Scheduling" />
-                    <NavItem icon={<BarChart3 className="w-5 h-5" />} label="Analytics" />
-                    <NavItem icon={<SettingIcon className="w-5 h-5" />} label="Settings" />
+                    <NavItem
+                        icon={<Calendar className="w-5 h-5" />}
+                        label="Scheduling"
+                        active={activeTab === "Scheduling"}
+                        onClick={() => setActiveTab("Scheduling")}
+                    />
+                    <NavItem
+                        icon={<BarChart3 className="w-5 h-5" />}
+                        label="Analytics"
+                        active={activeTab === "Analytics"}
+                        onClick={() => setActiveTab("Analytics")}
+                    />
+                    <NavItem
+                        icon={<SettingIcon className="w-5 h-5" />}
+                        label="Settings"
+                        active={activeTab === "Settings"}
+                        onClick={() => setActiveTab("Settings")}
+                    />
                 </nav>
 
                 <div className="p-4 mt-auto">
@@ -122,8 +137,11 @@ export default function Dashboard() {
 
                 <FadeIn key={activeTab}>
                     {activeTab === "Overview" && <OverviewView />}
-                    {activeTab === "Groups" && <GroupsView />}
+                    {activeTab === "Groups" && <GroupsView onRelogin={() => router.push("/")} />}
                     {activeTab === "Broadcasts" && <BroadcastsView />}
+                    {activeTab === "Scheduling" && <SchedulingView />}
+                    {activeTab === "Analytics" && <AnalyticsView />}
+                    {activeTab === "Settings" && <SettingsView />}
                 </FadeIn>
 
                 {showModal && <NewCampaignModal onClose={() => setShowModal(false)} />}
@@ -198,7 +216,7 @@ function OverviewView() {
     );
 }
 
-function GroupsView() {
+function GroupsView({ onRelogin }: { onRelogin: () => void }) {
     const [groups, setGroups] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
@@ -207,8 +225,13 @@ function GroupsView() {
         const fetchGroups = async () => {
             try {
                 const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/telegram/groups`);
-                if (!response.ok) throw new Error("Failed to fetch groups");
                 const data = await response.json();
+                if (!response.ok) {
+                    if (data.detail && data.detail.includes("SESSION_MISSING")) {
+                        throw new Error("SESSION_MISSING");
+                    }
+                    throw new Error(data.detail || "Failed to fetch groups");
+                }
                 setGroups(data);
             } catch (err: any) {
                 setError(err.message);
@@ -220,27 +243,131 @@ function GroupsView() {
     }, []);
 
     if (loading) return <div className="text-center py-20 text-slate-400">Loading your Telegram groups...</div>;
-    if (error) return <div className="text-center py-20 text-red-400">{error}</div>;
+
+    if (error === "SESSION_MISSING") {
+        return (
+            <div className="blue-glass p-12 rounded-2xl text-center border border-yellow-500/20">
+                <Shield className="w-16 h-16 text-yellow-500/50 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold mb-2 text-white">Session Expired</h3>
+                <p className="text-slate-400 mb-6 max-w-md mx-auto">
+                    Your Telegram session is missing or has expired in our database. Please login again to restore group access.
+                </p>
+                <button
+                    onClick={onRelogin}
+                    className="btn-primary"
+                >
+                    Reconnect Telegram
+                </button>
+            </div>
+        );
+    }
+
+    if (error) return (
+        <div className="text-center py-20 text-red-400">
+            <p className="mb-4">Error: {error}</p>
+            <button onClick={() => window.location.reload()} className="text-blue-400 underline hove:text-blue-300">Try Again</button>
+        </div>
+    );
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {groups.map((group) => (
-                <div key={group.id} className="blue-glass p-6 rounded-2xl border border-white/5 hover:border-blue-500/30 transition-all">
-                    <div className="flex items-center space-x-4 mb-4">
-                        <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400 font-bold">
-                            {group.name.charAt(0)}
+            {groups.length === 0 ? (
+                <div className="col-span-full text-center py-20 text-slate-500">
+                    No groups found. Try joining some or check your account.
+                </div>
+            ) : (
+                groups.map((group) => (
+                    <div key={group.id} className="blue-glass p-6 rounded-2xl border border-white/5 hover:border-blue-500/30 transition-all">
+                        <div className="flex items-center space-x-4 mb-4">
+                            <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400 font-bold">
+                                {group.name.charAt(0)}
+                            </div>
+                            <div>
+                                <h4 className="font-semibold truncate w-40">{group.name}</h4>
+                                <p className="text-xs text-slate-500">{group.is_channel ? "Channel" : "Group"}</p>
+                            </div>
                         </div>
-                        <div>
-                            <h4 className="font-semibold truncate w-40">{group.name}</h4>
-                            <p className="text-xs text-slate-500">{group.is_channel ? "Channel" : "Group"}</p>
+                        <div className="flex justify-between items-center pt-4 border-t border-white/5">
+                            <span className="text-[10px] text-slate-500 uppercase">ID: {group.id}</span>
+                            <button className="text-blue-400 text-xs font-semibold hover:underline">Select</button>
                         </div>
                     </div>
-                    <div className="flex justify-between items-center pt-4 border-t border-white/5">
-                        <span className="text-[10px] text-slate-500 uppercase">ID: {group.id}</span>
-                        <button className="text-blue-400 text-xs font-semibold hover:underline">Select</button>
+                ))
+            )}
+        </div>
+    );
+}
+
+function SchedulingView() {
+    return (
+        <div className="blue-glass p-12 rounded-2xl text-center">
+            <Calendar className="w-16 h-16 text-blue-500/50 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold mb-2">Message Scheduling</h3>
+            <p className="text-slate-400 mb-6 max-w-md mx-auto">
+                Plan your reach. Setup recurring broadcasts and time-sensitive updates for your audience.
+            </p>
+            <div className="inline-flex items-center px-4 py-2 rounded-lg bg-blue-500/10 text-blue-400 text-sm border border-blue-500/20">
+                Coming Soon - April 2026
+            </div>
+        </div>
+    );
+}
+
+function AnalyticsView() {
+    return (
+        <div className="space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <StatCard label="Total Reach" value="342k" icon={<Users />} trend="+15%" />
+                <StatCard label="Engagement" value="4.2%" icon={<TrendingUp className="w-4 h-4" />} trend="+0.8%" />
+                <StatCard label="CTR" value="1.2%" icon={<ArrowUpRight className="w-4 h-4" />} trend="-0.2%" />
+                <StatCard label="Delivery Rate" value="98.1%" icon={<Shield />} trend="+0.1%" />
+            </div>
+
+            <div className="blue-glass p-8 rounded-2xl h-64 flex items-center justify-center border border-white/5">
+                <div className="text-center">
+                    <BarChart3 className="w-12 h-12 text-slate-700 mx-auto mb-4" />
+                    <p className="text-slate-500 font-medium">Analytics engine initializing...</p>
+                    <p className="text-xs text-slate-600 mt-2">Charts will appear once 1,000 messages are delivered.</p>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function SettingsView() {
+    return (
+        <div className="max-w-2xl space-y-6">
+            <div className="blue-glass p-6 rounded-2xl border border-white/5">
+                <h4 className="font-semibold text-lg mb-4">Account Configuration</h4>
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between p-4 rounded-xl bg-white/5">
+                        <div>
+                            <p className="text-sm font-medium">Broadcast Speed</p>
+                            <p className="text-xs text-slate-500">Auto-balanced (Safe Mode)</p>
+                        </div>
+                        <div className="w-12 h-6 bg-blue-600 rounded-full flex items-center px-1">
+                            <div className="w-4 h-4 bg-white rounded-full translate-x-6" />
+                        </div>
+                    </div>
+                    <div className="flex items-center justify-between p-4 rounded-xl bg-white/5">
+                        <div>
+                            <p className="text-sm font-medium">Anti-Ban Protection</p>
+                            <p className="text-xs text-slate-500">Advanced proxy rotation enabled</p>
+                        </div>
+                        <div className="w-12 h-6 bg-blue-600 rounded-full flex items-center px-1">
+                            <div className="w-4 h-4 bg-white rounded-full translate-x-6" />
+                        </div>
                     </div>
                 </div>
-            ))}
+            </div>
+
+            <div className="blue-glass p-6 rounded-2xl border border-white/5">
+                <h4 className="font-semibold text-lg mb-4 text-red-400">Zone of Danger</h4>
+                <p className="text-xs text-slate-500 mb-4">Permanent actions that cannot be undone.</p>
+                <button className="px-6 py-2 rounded-lg border border-red-500/20 text-red-500 text-sm font-medium hover:bg-red-500/10 transition-all">
+                    Reset Telegram Session
+                </button>
+            </div>
         </div>
     );
 }

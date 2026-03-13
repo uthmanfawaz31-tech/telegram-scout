@@ -87,13 +87,17 @@ async def get_groups(db: Session = Depends(get_db)) -> Any:
     """
     account = db.query(models.TelegramAccount).filter(models.TelegramAccount.is_connected == True).first()
     if not account or not account.session_string:
-        raise HTTPException(status_code=400, detail="No connected Telegram account found")
+        raise HTTPException(
+            status_code=401, 
+            detail="SESSION_MISSING: Your Telegram session has expired or is not found. Please login again."
+        )
         
     try:
         service = TelegramService(account.session_string)
         groups = await service.get_dialogs()
         return groups
     except Exception as e:
+        logger.error(f"Error fetching groups: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/scrape")
