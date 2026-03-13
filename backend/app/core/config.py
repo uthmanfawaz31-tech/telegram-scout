@@ -19,12 +19,12 @@ class Settings(BaseSettings):
     @property
     def SQLALCHEMY_DATABASE_URI(self) -> str:
         url = self.DATABASE_URL
-        if url.startswith("libsql://") or url.startswith("https://"):
-            # If it's already https://, we just need the sqlite+libsql:// prefix
-            if url.startswith("https://"):
-                 return f"sqlite+libsql://{url}"
-            # Otherwise convert libsql:// to sqlite+libsql://
-            return url.replace("libsql://", "sqlite+libsql://")
+        if "turso.io" in url or url.startswith("libsql://") or url.startswith("https://"):
+            # Strip prefixes to get just the hostname
+            hostname = url.replace("libsql://", "").replace("https://", "").split("?")[0].rstrip("/")
+            # sqlalchemy-libsql expects sqlite+libsql://hostname
+            # We add secure=true if it was originally an https:// or libsql:// url
+            return f"sqlite+libsql://{hostname}/?secure=true"
         return url
 
 
