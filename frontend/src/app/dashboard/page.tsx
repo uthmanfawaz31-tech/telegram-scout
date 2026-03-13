@@ -134,6 +134,15 @@ export default function Dashboard() {
                         </button>
                     </div>
                 </div>
+                <div className="p-4 border-t border-white/5 mt-auto">
+                    <button
+                        onClick={handleLogout}
+                        className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-red-400 hover:bg-red-500/10 transition-all font-medium"
+                    >
+                        <LogOut className="w-5 h-5" />
+                        <span>Logout</span>
+                    </button>
+                </div>
             </aside>
 
             {/* Main Content */}
