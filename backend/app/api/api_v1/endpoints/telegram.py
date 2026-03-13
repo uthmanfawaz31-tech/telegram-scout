@@ -2,6 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException, Body
 from typing import Any, List
 from app.services.telegram_service import TelegramService
 from app.core.config import settings
+from sqlalchemy.orm import Session
+from app.core.db import get_db
+from app.models import models
 
 router = APIRouter()
 
@@ -34,7 +37,8 @@ async def send_code(phone: str = Body(..., embed=True)) -> Any:
 async def telegram_login(
     phone: str = Body(...), 
     code: str = Body(...),
-    phone_code_hash: str = Body(...)
+    phone_code_hash: str = Body(...),
+    db: Session = Depends(get_db)
 ) -> Any:
     """
     Login with OTP to Telegram.
@@ -43,6 +47,22 @@ async def telegram_login(
         service = get_service(phone)
         user, session_str = await service.sign_in(phone, code, phone_code_hash)
         
+        # Save session to DB
+        account = db.query(models.TelegramAccount).filter(models.TelegramAccount.phone == phone).first()
+        if not account:
+            account = models.TelegramAccount(
+                phone=phone,
+                session_string=session_str,
+                api_id=settings.TELEGRAM_API_ID,
+                api_hash=settings.TELEGRAM_API_HASH,
+                is_connected=True
+            )
+            db.add(account)
+        else:
+            account.session_string = session_str
+            account.is_connected = True
+        db.commit()
+
         # Clean up service after successful login
         active_services.pop(phone, None)
         code_hashes.pop(phone, None)
@@ -61,12 +81,16 @@ async def telegram_login(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/groups")
-async def get_groups() -> Any:
+async def get_groups(db: Session = Depends(get_db)) -> Any:
     """
     Fetch user groups and channels.
     """
+    account = db.query(models.TelegramAccount).filter(models.TelegramAccount.is_connected == True).first()
+    if not account or not account.session_string:
+        raise HTTPException(status_code=400, detail="No connected Telegram account found")
+        
     try:
-        service = TelegramService()
+        service = TelegramService(account.session_string)
         groups = await service.get_dialogs()
         return groups
     except Exception as e:

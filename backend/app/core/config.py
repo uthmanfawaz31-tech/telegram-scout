@@ -12,30 +12,22 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
     
     # DATABASE
-    POSTGRES_SERVER: str = "localhost"
-    POSTGRES_USER: str = "postgres"
-    POSTGRES_PASSWORD: str = "password"
-    POSTGRES_DB: str = "telegram_broadcasting"
-    
+    # If using Turso, this will look like libsql://...
+    DATABASE_URL: str = "sqlite:///./test.db"
+    TURSO_AUTH_TOKEN: str = ""
+
     @property
     def SQLALCHEMY_DATABASE_URI(self) -> str:
-        return f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}/{self.POSTGRES_DB}"
+        if self.DATABASE_URL.startswith("libsql://"):
+            # Convert to a format SQLAlchemy with sqlalchemy-libsql understands
+            return self.DATABASE_URL.replace("libsql://", "sqlite+libsql://")
+        return self.DATABASE_URL
 
-    # REDIS / CELERY
-    REDIS_HOST: str = "localhost"
-    REDIS_PORT: int = 6379
-    
-    @property
-    def CELERY_BROKER_URL(self) -> str:
-        return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/0"
-    
-    @property
-    def CELERY_RESULT_BACKEND(self) -> str:
-        return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/0"
 
     # TELEGRAM
     TELEGRAM_API_ID: str = ""
     TELEGRAM_API_HASH: str = ""
+
 
     # CORS
     # Define as a string first to avoid parsing issues from .env, then we'll convert it
@@ -45,11 +37,17 @@ class Settings(BaseSettings):
     @classmethod
     def assemble_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:
         if isinstance(v, str):
+            if not v:
+                return []
             if v.startswith("[") and v.endswith("]"):
-                # Handle it if it's already a JSON-like string
                 import json
-                return json.loads(v)
-            return [i.strip() for i in v.split(",")]
+                try:
+                    return json.loads(v)
+                except Exception:
+                    pass
+            # Clean up potential quotes and spaces
+            cleaned = v.strip().replace('"', "").replace("'", "")
+            return [i.strip() for i in cleaned.split(",") if i.strip()]
         return v
 
     model_config = SettingsConfigDict(

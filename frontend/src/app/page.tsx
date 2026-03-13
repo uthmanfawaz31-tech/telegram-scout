@@ -54,6 +54,9 @@ export default function Home() {
       if (data.session_string) {
         localStorage.setItem("tg_session", data.session_string);
       }
+      if (data.user) {
+        localStorage.setItem("tg_user", JSON.stringify(data.user));
+      }
       window.location.href = "/dashboard";
     } catch (err: any) {
       setError(err.message);

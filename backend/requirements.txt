@@ -1,13 +1,11 @@
 fastapi
 uvicorn
 sqlalchemy
-psycopg2-binary
+sqlalchemy-libsql
 alembic
 pydantic-settings
 python-multipart
 python-jose[cryptography]
 passlib[bcrypt]
 telethon
-celery
-redis
 python-dotenv

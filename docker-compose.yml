@@ -1,15 +1,6 @@
 version: '3.8'
 
 services:
-  db:
-    image: postgres:13-alpine
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    environment:
-      - POSTGRES_DB=telegram_broadcasting
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=password
-
   redis:
     image: redis:alpine
 
@@ -19,17 +10,14 @@ services:
     volumes:
       - ./backend:/app
     environment:
-      - POSTGRES_SERVER=db
       - REDIS_HOST=redis
     depends_on:
-      - db
       - redis
 
   worker:
     build: ./backend
     command: celery -A app.tasks.broadcast worker --loglevel=info
     environment:
-      - POSTGRES_SERVER=db
       - REDIS_HOST=redis
     depends_on:
       - backend
@@ -40,9 +28,8 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+      - NEXT_PUBLIC_API_URL=https://telegram-scout.vercel.app/api/v1
     depends_on:
       - backend
 
 volumes:
-  postgres_data:
