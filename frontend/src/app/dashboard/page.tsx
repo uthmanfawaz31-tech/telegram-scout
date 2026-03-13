@@ -12,12 +12,13 @@ import {
     Plus,
     ArrowUpRight,
     Clock,
-    Shield
+    Shield,
+    TrendingUp
 } from "lucide-react";
 import Background from "@/components/Background";
 import FadeIn from "@/components/FadeIn";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 export default function Dashboard() {

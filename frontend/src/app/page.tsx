@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import Background from "@/components/Background";
 import FadeIn from "@/components/FadeIn";
 import { MessageSquare, Shield, Zap, TrendingUp } from "lucide-react";
