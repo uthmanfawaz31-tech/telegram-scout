@@ -47,7 +47,7 @@ class TelegramService:
     async def get_dialogs(self):
         await self.connect()
         dialogs = await self.client.get_dialogs()
-        return [{"id": d.id, "name": d.name, "is_group": d.is_group, "is_channel": d.is_channel} for d in dialogs]
+        return [{"id": d.id, "name": d.name, "is_group": d.is_group, "is_channel": d.is_channel} for d in dialogs if d.is_group or d.is_channel]
 
     async def send_message(self, peer_id: int, message: str):
         await self.connect()

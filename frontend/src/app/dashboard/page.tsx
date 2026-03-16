@@ -640,6 +640,24 @@ function NewCampaignModal({ onClose, initialSelectedIds = [] }: { onClose: () =>
     const [scheduledAt, setScheduledAt] = useState(new Date().toISOString().slice(0, 16));
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
+    const [pastMessages, setPastMessages] = useState<string[]>([]);
+
+    useEffect(() => {
+        const fetchPastMessages = async () => {
+            try {
+                const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/campaigns`);
+                if (response.ok) {
+                    const data = await response.json();
+                    const completed = data.filter((c: any) => c.status === "completed");
+                    const messages = Array.from(new Set(completed.map((c: any) => c.message_text))) as string[];
+                    setPastMessages(messages);
+                }
+            } catch (err) {
+                console.error("Failed to fetch past campaigns", err);
+            }
+        };
+        fetchPastMessages();
+    }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -697,6 +715,22 @@ function NewCampaignModal({ onClose, initialSelectedIds = [] }: { onClose: () =>
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-slate-400 mb-2">Message Text</label>
+                        {pastMessages.length > 0 && (
+                            <div className="mb-3">
+                                <select
+                                    className="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-2 text-sm text-slate-300 focus:outline-none focus:border-blue-500 transition-all appearance-none"
+                                    onChange={(e) => {
+                                        if (e.target.value) setMessage(e.target.value);
+                                    }}
+                                    defaultValue=""
+                                >
+                                    <option value="" disabled>--- Reuse a successful message ---</option>
+                                    {pastMessages.map((msg, idx) => (
+                                        <option key={idx} value={msg}>{msg.length > 60 ? msg.substring(0, 60) + "..." : msg}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
                         <textarea
                             placeholder="Type your message here..."
                             rows={4}
